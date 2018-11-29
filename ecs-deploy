@@ -12,6 +12,7 @@ MIN=false
 MAX=false
 TIMEOUT=90
 VERBOSE=false
+CONTAINER_ENV='{"environment": []}'
 TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
@@ -330,6 +331,7 @@ function createNewTaskDefJson() {
 
     # Build new DEF with jq filter
     NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
+    NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].environment[]) | .containerDefinitions[] += $CONTAINER_ENV")
 
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
@@ -545,6 +547,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -D|--desired-count)
                 DESIRED="$2"
+                shift
+                ;;
+            -E|--container-variable)
+                TEMP_ENV=(${2//=/ })
+                CONTAINER_ENV=$(echo $CONTAINER_ENV | jq '.environment[.environment| length] |= . + {"name": "'${TEMP_ENV[0]}'", "value": "'${TEMP_ENV[1]}'"}')
                 shift
                 ;;
             -e|--tag-env-var)
