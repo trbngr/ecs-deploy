@@ -23,6 +23,7 @@ AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
+EXECUTION_ROLE_ARN=""
 
 function usage() {
     cat <<EOM
@@ -315,7 +316,7 @@ function createNewTaskDefJson() {
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
-    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints)
+    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints executionRoleArn)
     for i in "${CONDITIONAL_OPTIONS[@]}"; do
       re=".*${i}.*"
       if [[ "$DEF" =~ $re ]]; then
@@ -333,7 +334,11 @@ function createNewTaskDefJson() {
     # Build new DEF with jq filter
     NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
     NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].environment[]) | .containerDefinitions[] += $CONTAINER_ENV")
-    NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].secrets[]) | .containerDefinitions[] += $SECRETS")
+    NEW_DEF=$(echo $NEW_DEF | jq " .containerDefinitions[] |= $SECRETS")
+
+    if [ $EXECUTION_ROLE_ARN != "" ]; then
+        NEW_DEF=$(echo "$NEW_DEF" | jq --arg role ${EXECUTION_ROLE_ARN} '.executionRoleArn |= ($role)')
+    fi
 
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
@@ -567,6 +572,10 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -to|--tag-only)
                 TAGONLY="$2"
+                shift
+                ;;
+            --execution-role-arn)
+                EXECUTION_ROLE_ARN="$2"
                 shift
                 ;;
             --max-definitions)
