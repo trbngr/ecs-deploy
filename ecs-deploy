@@ -334,7 +334,7 @@ function createNewTaskDefJson() {
     # Build new DEF with jq filter
     NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
     NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].environment[]) | .containerDefinitions[] += $CONTAINER_ENV")
-    NEW_DEF=$(echo $NEW_DEF | jq " .containerDefinitions[] |= $SECRETS")
+    NEW_DEF=$(echo $NEW_DEF | jq " .containerDefinitions[] = $SECRETS")
 
     if [ $EXECUTION_ROLE_ARN != "" ]; then
         NEW_DEF=$(echo "$NEW_DEF" | jq --arg role ${EXECUTION_ROLE_ARN} '.executionRoleArn |= ($role)')
@@ -348,6 +348,7 @@ function createNewTaskDefJson() {
 
 function registerNewTaskDefinition() {
     # Register the new task definition, and store its ARN
+    echo "new definition: ${NEW_DEF}"
     NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
 }
 
