@@ -559,13 +559,11 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 ;;
             -E|--container-variable)
                 TEMP_ENV=(${2//=/ })
-                echo "ENV: ${TEMP_ENV}"
                 CONTAINER_ENV=$(echo $CONTAINER_ENV | jq '.environment[.environment| length] |= . + {"name": "'${TEMP_ENV[0]}'", "value": "'${TEMP_ENV[1]}'"}')
                 shift
                 ;;
             -S|--secret)
                 TEMP_SECRET=(${2//=/ })
-                echo "SECRET: ${TEMP_ENV}"
                 SECRETS=$(echo $SECRETS | jq '.secrets[.secrets| length] |= . + {"name": "'${TEMP_SECRET[0]}'", "valueFrom": "'${TEMP_SECRET[1]}'"}')
                 shift
                 ;;
