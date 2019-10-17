@@ -12,6 +12,8 @@ MIN=false
 MAX=false
 TIMEOUT=90
 VERBOSE=false
+CONTAINER_ENV='{"environment": []}'
+SECRETS='{"secrets": []}'
 TAGVAR=false
 TAGONLY=""
 ENABLE_ROLLBACK=false
@@ -21,6 +23,7 @@ AWS_ECS="$AWS_CLI --output json ecs"
 FORCE_NEW_DEPLOYMENT=false
 SKIP_DEPLOYMENTS_CHECK=false
 RUN_TASK=false
+EXECUTION_ROLE_ARN=""
 
 function usage() {
     cat <<EOM
@@ -313,7 +316,7 @@ function createNewTaskDefJson() {
 
     # Some options in task definition should only be included in new definition if present in
     # current definition. If found in current definition, append to JQ filter.
-    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints)
+    CONDITIONAL_OPTIONS=(networkMode taskRoleArn placementConstraints executionRoleArn)
     for i in "${CONDITIONAL_OPTIONS[@]}"; do
       re=".*${i}.*"
       if [[ "$DEF" =~ $re ]]; then
@@ -330,6 +333,12 @@ function createNewTaskDefJson() {
 
     # Build new DEF with jq filter
     NEW_DEF=$(echo "$DEF" | jq "{${NEW_DEF_JQ_FILTER}}")
+    NEW_DEF=$(echo $NEW_DEF | jq " del(.containerDefinitions[].environment[]) | .containerDefinitions[] += $CONTAINER_ENV")
+    NEW_DEF=$(echo $NEW_DEF | jq " .containerDefinitions[] += $SECRETS")
+
+    if [ $EXECUTION_ROLE_ARN != "" ]; then
+        NEW_DEF=$(echo "$NEW_DEF" | jq --arg role ${EXECUTION_ROLE_ARN} '.executionRoleArn |= ($role)')
+    fi
 
     # If in test mode output $NEW_DEF
     if [ "$BASH_SOURCE" != "$0" ]; then
@@ -339,6 +348,7 @@ function createNewTaskDefJson() {
 
 function registerNewTaskDefinition() {
     # Register the new task definition, and store its ARN
+    echo "new definition: ${NEW_DEF}"
     NEW_TASKDEF=`$AWS_ECS register-task-definition --cli-input-json "$NEW_DEF" | jq -r .taskDefinition.taskDefinitionArn`
 }
 
@@ -547,12 +557,28 @@ if [ "$BASH_SOURCE" == "$0" ]; then
                 DESIRED="$2"
                 shift
                 ;;
+            -E|--container-variable)
+                TEMP_ENV=(${2//=/ })
+                echo "-E ${TEMP_ENV[0]}=${TEMP_ENV[1]}"
+                CONTAINER_ENV=$(echo $CONTAINER_ENV | jq '.environment[.environment| length] |= . + {"name": "'${TEMP_ENV[0]}'", "value": "'${TEMP_ENV[1]}'"}')
+                shift
+                ;;
+            -S|--secret)
+                TEMP_SECRET=(${2//=/ })
+                echo "-S ${TEMP_ENV[0]}=${TEMP_ENV[1]}"
+                SECRETS=$(echo $SECRETS | jq '.secrets[.secrets| length] |= . + {"name": "'${TEMP_SECRET[0]}'", "valueFrom": "'${TEMP_SECRET[1]}'"}')
+                shift
+                ;;
             -e|--tag-env-var)
                 TAGVAR="$2"
                 shift
                 ;;
             -to|--tag-only)
                 TAGONLY="$2"
+                shift
+                ;;
+            --execution-role-arn)
+                EXECUTION_ROLE_ARN="$2"
                 shift
                 ;;
             --max-definitions)
@@ -603,7 +629,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     # Not required creation of new a task definition
     if [ $FORCE_NEW_DEPLOYMENT == true ]; then
         updateServiceForceNewDeployment
-        waitForGreenDeployment
+        # waitForGreenDeployment
         exit 0
     fi
 
@@ -632,7 +658,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         updateService
 
         if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
-          waitForGreenDeployment
+          # waitForGreenDeployment
         fi
     fi
 
