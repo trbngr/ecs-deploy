@@ -629,7 +629,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
     # Not required creation of new a task definition
     if [ $FORCE_NEW_DEPLOYMENT == true ]; then
         updateServiceForceNewDeployment
-        waitForGreenDeployment
+        # waitForGreenDeployment
         exit 0
     fi
 
@@ -658,7 +658,7 @@ if [ "$BASH_SOURCE" == "$0" ]; then
         updateService
 
         if [[ $SKIP_DEPLOYMENTS_CHECK != true ]]; then
-          waitForGreenDeployment
+          # waitForGreenDeployment
         fi
     fi
 
