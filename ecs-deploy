@@ -363,7 +363,7 @@ function updateServiceForceNewDeployment() {
 }
 
 function updateService() {
-    UPDATE_SERVICE_SUCCESS="false"
+    UPDATE_SERVICE_SUCCESS="true"
     DEPLOYMENT_CONFIG=""
     if [ $MAX != false ]; then
         DEPLOYMENT_CONFIG=",maximumPercent=$MAX"
